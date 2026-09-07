@@ -144,6 +144,58 @@ def test_indirect_object_premature(value):
     assert exc.value.args[0] == "Stream has ended unexpectedly"
 
 
+def test_indirect_object_valid():
+    stream = BytesIO(b"12 0 R")
+    obj = IndirectObject.read_from_stream(stream, None)
+    assert obj.idnum == 12
+    assert obj.generation == 0
+
+
+def test_indirect_object_multiple_spaces():
+    stream = BytesIO(b"42    7   R")
+    obj = IndirectObject.read_from_stream(stream, None)
+    assert obj.idnum == 42
+    assert obj.generation == 7
+
+
+def test_indirect_object_length_limit_idnum():
+    data = b"9" * 100
+    stream = BytesIO(data)
+    with pytest.raises(PdfReadError) as exc:
+        IndirectObject.read_from_stream(stream, None)
+    assert "exceeds maximum length limit" in str(exc.value)
+
+
+def test_indirect_object_length_limit_generation():
+    data = b"12 " + b"9" * 100
+    stream = BytesIO(data)
+    with pytest.raises(PdfReadError) as exc:
+        IndirectObject.read_from_stream(stream, None)
+    assert "exceeds maximum length limit" in str(exc.value)
+
+
+@pytest.mark.timeout(2)
+def test_indirect_object_dos_resistance():
+    data = b"1" * 1_000_000
+    stream = BytesIO(data)
+    with pytest.raises(PdfReadError):
+        IndirectObject.read_from_stream(stream, None)
+
+
+def test_indirect_object_malformed_token():
+    stream = BytesIO(b"abc 0 R")
+    with pytest.raises(PdfReadError) as exc:
+        IndirectObject.read_from_stream(stream, None)
+    assert "Invalid indirect object reference" in str(exc.value)
+
+
+def test_indirect_object_wrong_trailer():
+    stream = BytesIO(b"12 0 obj")
+    with pytest.raises(PdfReadError) as exc:
+        IndirectObject.read_from_stream(stream, None)
+    assert "Error reading indirect object reference" in str(exc.value)
+
+
 def test_read_hex_string_from_stream():
     stream = BytesIO(b"a1>")
     assert read_hex_string_from_stream(stream) == "\x10"

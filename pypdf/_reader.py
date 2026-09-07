@@ -617,10 +617,10 @@ class PdfReader(PdfDocCommon):
         skip_over_comment(stream)
         extra = skip_over_whitespace(stream)
         stream.seek(-1, 1)
-        idnum = read_until_whitespace(stream, max_bytes=64)
+        idnum = read_until_whitespace(stream)
         extra |= skip_over_whitespace(stream)
         stream.seek(-1, 1)
-        generation = read_until_whitespace(stream, max_bytes=64)
+        generation = read_until_whitespace(stream)
         extra |= skip_over_whitespace(stream)
         stream.seek(-1, 1)
 
@@ -636,12 +636,7 @@ class PdfReader(PdfDocCommon):
                 idnum=idnum,
                 generation=generation,
             )
-        try:
-            return int(idnum), int(generation)
-        except (ValueError, OverflowError) as e:
-            raise ValueError(
-                f"Invalid object header ({idnum!r} {generation!r} obj): {e}"
-            ) from e
+        return int(idnum), int(generation)
 
     def cache_get_indirect_object(
         self, generation: int, idnum: int
@@ -1402,13 +1397,13 @@ class PdfReader(PdfDocCommon):
                     object_stream = BytesIO(obj.get_data())
                     actual_count = 0
                     while True:
-                        current = read_until_whitespace(object_stream, max_bytes=64)
+                        current = read_until_whitespace(object_stream)
                         if not current.isdigit():
                             break
                         inner_object_number = int(current)
                         skip_over_whitespace(object_stream)
                         object_stream.seek(-1, 1)
-                        current = read_until_whitespace(object_stream, max_bytes=64)
+                        current = read_until_whitespace(object_stream)
                         if not current.isdigit():  # pragma: no cover
                             break  # pragma: no cover
                         inner_generation_number = int(current)

@@ -455,38 +455,42 @@ class IndirectObject(PdfObject):
             )
         stream.write(f"{self.idnum} {self.generation} R".encode())
 
-    _LENGTH_LIMIT: ClassVar[int] = 64
+    _MAX_ID_OR_GENERATION_LENGTH: ClassVar[int] = 64
 
     @staticmethod
     def read_from_stream(stream: StreamType, pdf: Any) -> "IndirectObject":  # PdfReader
         idnum = bytearray()
+        idnum_len = 0
         while True:
             tok = stream.read(1)
             if not tok:
                 raise PdfStreamError(STREAM_TRUNCATED_PREMATURELY)
             if tok.isspace():
                 break
-            if len(idnum) < IndirectObject._LENGTH_LIMIT:
+            if idnum_len < IndirectObject._MAX_ID_OR_GENERATION_LENGTH:
                 idnum += tok
+                idnum_len += 1
             else:
                 raise PdfReadError(
-                    f"Object ID exceeds maximum length limit of {IndirectObject._LENGTH_LIMIT}"
+                    f"Object ID exceeds maximum length limit of {IndirectObject._MAX_ID_OR_GENERATION_LENGTH}"
                 )
 
         generation = bytearray()
+        generation_len = 0
         while True:
             tok = stream.read(1)
             if not tok:
                 raise PdfStreamError(STREAM_TRUNCATED_PREMATURELY)
             if tok.isspace():
-                if not generation:
+                if not generation_len:
                     continue
                 break
-            if len(generation) < IndirectObject._LENGTH_LIMIT:
+            if generation_len < IndirectObject._MAX_ID_OR_GENERATION_LENGTH:
                 generation += tok
+                generation_len += 1
             else:
                 raise PdfReadError(
-                    f"Generation number exceeds maximum length limit of {IndirectObject._LENGTH_LIMIT}"
+                    f"Generation number exceeds maximum length limit of {IndirectObject._MAX_ID_OR_GENERATION_LENGTH}"
                 )
 
         r = read_non_whitespace(stream)
@@ -496,7 +500,7 @@ class IndirectObject(PdfObject):
             )
         try:
             return IndirectObject(int(idnum), int(generation), pdf)
-        except (ValueError, OverflowError) as e:
+        except ValueError as e:
             raise PdfReadError(
                 f"Invalid indirect object reference ({bytes(idnum)!r} {bytes(generation)!r} R): {e}"
             ) from e
